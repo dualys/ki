@@ -1,4 +1,5 @@
 use inquire::{Confirm, InquireError, Select, Text};
+use tabled::{builder::Builder, settings::Style};
 const QUESTIONS: &[(&str, &str)] = &[
     (
         "Does it anchor, stabilize, or provide a foundation?",
@@ -190,14 +191,21 @@ pub fn generate_all_forms(consonants: &[String]) -> Vec<(String, String)> {
     // Formes supplémentaires
     forms.push(("Verb + -yū".to_string(), format!("{verb}-yū")));
     forms.push(("Noun + -ūm".to_string(), format!("{noun}-ūm")));
-    forms.push((
-        "Verb with apostrophe".to_string(),
-        format!("{c1}a'{c2}a{c3}a").to_lowercase(),
-    ));
-    forms.push((
-        "Noun with apostrophe".to_string(),
-        format!("{c1}i'{c2}ā{c3}").to_lowercase(),
-    ));
+    // Verbe avec apostrophe (évite la double apostrophe)
+    let verb_apostrophe = if verb.contains('\'') {
+        verb.clone()
+    } else {
+        format!("{}a'{}a{}a", c1, c2, c3).to_lowercase()
+    };
+
+    // Nom avec apostrophe (évite la double apostrophe)
+    let noun_apostrophe = if noun.contains('\'') {
+        noun.clone()
+    } else {
+        format!("{}i'{}ā{}", c1, c2, c3).to_lowercase()
+    };
+    forms.push(("Verb with apostrophe".to_string(), verb_apostrophe));
+    forms.push(("Noun with apostrophe".to_string(), noun_apostrophe));
     // Dans generate_all_forms, après les formes existantes :
 
     forms.push(("Verb + me-".to_string(), format!("me-{}", verb)));
@@ -217,10 +225,13 @@ pub fn add_word_interactive() -> Result<(), InquireError> {
     let polarities = assign_polarities(&consonants)?;
 
     let forms = generate_all_forms(&consonants);
-
+    let mut table = Builder::new();
+    table.push_record(["Label", "Form"]);
     for (label, form) in &forms {
-        println!("{label} : {form}");
+        table.push_record([label, form]);
     }
+    let mut t = table.build();
+    println!("{}", t.with(Style::modern()).to_string());
     let definition = generate_definition(&polarities);
     println!("Définition :\n\n\t{definition}");
     Ok(())
