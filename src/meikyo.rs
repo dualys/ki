@@ -1,6 +1,4 @@
-use std::os::fd::AsRawFd;
-
-use inquire::{Confirm, InquireError, MultiSelect, Select, Text};
+use inquire::{Confirm, InquireError, Select, Text};
 const QUESTIONS: &[(&str, &str)] = &[
     (
         "Does it anchor, stabilize, or provide a foundation?",

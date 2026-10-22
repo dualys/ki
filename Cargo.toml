@@ -7,7 +7,6 @@ edition = "2024"
 clap = "4.6.7"
 diesel = { version = "2.3.14", features = ["sqlite"] }
 dirs = "7.0.0"
-dotenvy = "0.15.7"
 inquire = { version = "0.9.4", features = ["console", "date", "editor", "chrono"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tabled = "0.22.0"
