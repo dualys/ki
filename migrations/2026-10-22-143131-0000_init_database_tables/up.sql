@@ -1,73 +1,68 @@
 -- Your SQL goes here
 -- Table principale des mots
 CREATE TABLE IF NOT EXISTS words (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word TEXT NOT NULL UNIQUE,              -- ex: Tāḥem
-    ipa TEXT,                               -- ex: taː.ħɛm
-    root TEXT NOT NULL,                     -- ex: T-Ḥ-M
-    chakra TEXT,                            -- ex: Racine
-    element TEXT,                           -- ex: Terre
-    frequency INTEGER,                      -- ex: 396
-    grapheme TEXT,                          -- ex: ◯
-    polarity TEXT,                          -- Actif / Complémentaire
-    part_of_speech TEXT,                    -- n., v., etc.
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    id SERIAL PRIMARY KEY,
+    word TEXT NOT NULL UNIQUE,
+    ipa TEXT,
+    root TEXT NOT NULL,
+    chakra TEXT,
+    element TEXT,
+    frequency INTEGER,
+    grapheme TEXT,
+    polarity TEXT,
+    part_of_speech TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Polarités détaillées de la racine (matrice générative)
+-- Polarités détaillées de la racine
 CREATE TABLE IF NOT EXISTS root_polarities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL,
-    position INTEGER NOT NULL,              -- 1, 2 ou 3 (C1, C2, C3)
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
     consonant TEXT NOT NULL,
-    agency TEXT,                            -- Actif / Passif
-    realm TEXT,                             -- Céleste / Terrestre
-    element TEXT,                           -- Terre, Eau, Feu, Air...
-    quality TEXT,                           -- Force / Grâce
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    agency TEXT,
+    realm TEXT,
+    element TEXT,
+    quality TEXT
 );
 
--- Contenus textuels (mythe, essence, définition...)
+-- Contenus textuels
 CREATE TABLE IF NOT EXISTS word_contents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL,
-    section TEXT NOT NULL,                  -- Origine, Essence, Signification, Invocation...
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    section TEXT NOT NULL,
     content TEXT NOT NULL,
-    language TEXT DEFAULT 'fr',             -- fr / en
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    language TEXT DEFAULT 'fr'
 );
 
 -- Complémentaires
 CREATE TABLE IF NOT EXISTS complementaries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL,
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
     complementary_word TEXT NOT NULL,
     complementary_ipa TEXT,
-    note TEXT,
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    note TEXT
 );
 
 -- Exemples de phrases
 CREATE TABLE IF NOT EXISTS examples (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL,
-    register TEXT NOT NULL,                 -- Descriptif / Rituel
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    register TEXT NOT NULL,
     meikyo_sentence TEXT NOT NULL,
-    translation TEXT,
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    translation TEXT
 );
 
--- Correspondances cosmiques (optionnel)
+-- Correspondances cosmiques
 CREATE TABLE IF NOT EXISTS correspondences (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL,
-    type TEXT NOT NULL,                     -- plante / mineral / constellation
+    id SERIAL PRIMARY KEY,
+    word_id INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
     name TEXT NOT NULL,
-    rationale TEXT,
-    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+    rationale TEXT
 );
 
--- Index utiles
+-- Index
 CREATE INDEX IF NOT EXISTS idx_words_root ON words(root);
 CREATE INDEX IF NOT EXISTS idx_words_chakra ON words(chakra);
 CREATE INDEX IF NOT EXISTS idx_polarities_word ON root_polarities(word_id);

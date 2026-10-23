@@ -2,8 +2,8 @@
 
 diesel::table! {
     complementaries (id) {
-        id -> Nullable<Integer>,
-        word_id -> Integer,
+        id -> Int4,
+        word_id -> Int4,
         complementary_word -> Text,
         complementary_ipa -> Nullable<Text>,
         note -> Nullable<Text>,
@@ -12,8 +12,8 @@ diesel::table! {
 
 diesel::table! {
     correspondences (id) {
-        id -> Nullable<Integer>,
-        word_id -> Integer,
+        id -> Int4,
+        word_id -> Int4,
         #[sql_name = "type"]
         type_ -> Text,
         name -> Text,
@@ -23,8 +23,8 @@ diesel::table! {
 
 diesel::table! {
     examples (id) {
-        id -> Nullable<Integer>,
-        word_id -> Integer,
+        id -> Int4,
+        word_id -> Int4,
         register -> Text,
         meikyo_sentence -> Text,
         translation -> Nullable<Text>,
@@ -33,9 +33,9 @@ diesel::table! {
 
 diesel::table! {
     root_polarities (id) {
-        id -> Nullable<Integer>,
-        word_id -> Integer,
-        position -> Integer,
+        id -> Int4,
+        word_id -> Int4,
+        position -> Int4,
         consonant -> Text,
         agency -> Nullable<Text>,
         realm -> Nullable<Text>,
@@ -46,8 +46,8 @@ diesel::table! {
 
 diesel::table! {
     word_contents (id) {
-        id -> Nullable<Integer>,
-        word_id -> Integer,
+        id -> Int4,
+        word_id -> Int4,
         section -> Text,
         content -> Text,
         language -> Nullable<Text>,
@@ -56,17 +56,17 @@ diesel::table! {
 
 diesel::table! {
     words (id) {
-        id -> Nullable<Integer>,
+        id -> Int4,
         word -> Text,
         ipa -> Nullable<Text>,
         root -> Text,
         chakra -> Nullable<Text>,
         element -> Nullable<Text>,
-        frequency -> Nullable<Integer>,
+        frequency -> Nullable<Int4>,
         grapheme -> Nullable<Text>,
         polarity -> Nullable<Text>,
         part_of_speech -> Nullable<Text>,
-        created_at -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
     }
 }
 

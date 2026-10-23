@@ -1,6 +1,7 @@
 use std::fs::create_dir_all;
 
 use clap::Command;
+use dotenvy::dotenv;
 use inquire::{Confirm, InquireError};
 
 pub mod meikyo;
@@ -21,6 +22,7 @@ fn main() -> Result<(), InquireError> {
     match matches.subcommand() {
         Some(("add", _)) => loop {
             loop {
+                let _ = dotenv().ok();
                 meikyo::add_word_interactive().expect("failed to get data");
                 if Confirm::new("Add an other words")
                     .with_default(false)

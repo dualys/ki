@@ -1,17 +1,15 @@
 -- This file should undo anything in `up.sql`
--- Table principale des mots
-DROP TABLE IF EXISTS words;
--- Polarités détaillées de la racine (matrice générative)
-DROP TABLE IF EXISTS root_polarities;
--- Contenus textuels (mythe, essence, définition...)
-DROP TABLE IF EXISTS word_contents;
--- Complémentaires
-DROP TABLE IF EXISTS complementaries;
--- Exemples de phrases
-DROP TABLE IF EXISTS examples;
--- Correspondances cosmiques (optionnel)
+-- Supprimer d'abord les tables dépendantes
 DROP TABLE IF EXISTS correspondences;
--- Index utiles
+DROP TABLE IF EXISTS examples;
+DROP TABLE IF EXISTS complementaries;
+DROP TABLE IF EXISTS word_contents;
+DROP TABLE IF EXISTS root_polarities;
+
+-- Puis la table principale
+DROP TABLE IF EXISTS words;
+
+-- Index (optionnel, ils sont déjà droppés avec les tables)
 DROP INDEX IF EXISTS idx_words_root;
 DROP INDEX IF EXISTS idx_words_chakra;
 DROP INDEX IF EXISTS idx_polarities_word;

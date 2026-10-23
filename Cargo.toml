@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 clap = "4.6.7"
-diesel = { version = "2.3.14", features = ["sqlite"] }
+diesel = { version = "2.3.14", features = ["chrono", "postgres", "serde_json", "postgres_backend" ] }
 dirs = "7.0.0"
+dotenvy = "0.15.7"
 inquire = { version = "0.9.4", features = ["console", "date", "editor", "chrono"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tabled = "0.22.0"
