@@ -11,6 +11,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    concepts (id) {
+        id -> Int4,
+        english_word -> Text,
+        implemented -> Nullable<Bool>,
+        meikyo_root -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
     correspondences (id) {
         id -> Int4,
         word_id -> Int4,
@@ -67,6 +76,12 @@ diesel::table! {
         polarity -> Nullable<Text>,
         part_of_speech -> Nullable<Text>,
         created_at -> Nullable<Timestamp>,
+        definition -> Nullable<Text>,
+        word_reversed -> Nullable<Text>,
+        root_reversed -> Nullable<Text>,
+        extensions -> Nullable<Jsonb>,
+        ipa_reversed -> Nullable<Text>,
+        hz -> Nullable<Int4>,
     }
 }
 
@@ -78,6 +93,7 @@ diesel::joinable!(word_contents -> words (word_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     complementaries,
+    concepts,
     correspondences,
     examples,
     root_polarities,

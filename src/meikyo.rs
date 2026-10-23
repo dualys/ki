@@ -1,8 +1,11 @@
-use std::env::var;
-
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use inquire::{Confirm, InquireError, Select, Text};
+use diesel::sql_query;
+use diesel::sql_types::Integer;
+use diesel::sql_types::Text;
+use inquire::{Confirm, InquireError, MultiSelect, Select};
+use std::env::var;
+use std::io::Write;
 use tabled::{builder::Builder, settings::Style};
 const QUESTIONS: &[(&str, &str)] = &[
     (
@@ -22,6 +25,286 @@ const QUESTIONS: &[(&str, &str)] = &[
         "Crown",
     ),
 ];
+
+// ============================================================
+// 1. FILL NULL COLUMNS
+// ============================================================
+
+#[derive(QueryableByName, Debug)]
+struct WordRow {
+    #[diesel(sql_type = Integer)]
+    id: i32,
+    #[diesel(sql_type = Text)]
+    word: String,
+    #[diesel(sql_type = Text)]
+    chakra: String,
+    #[diesel(sql_type = Text)]
+    word_reversed: String, // plus d'Option
+}
+
+pub fn fill_null_columns(conn: &mut PgConnection) -> Result<(), diesel::result::Error> {
+    let rows: Vec<WordRow> = sql_query(
+        "SELECT id, word, chakra, COALESCE(word_reversed, '') AS word_reversed \
+         FROM words WHERE element IS NULL OR ipa IS NULL",
+    )
+    .load(conn)?;
+    let chakra_to_hz = [
+        ("Root", 396),
+        ("Sacral", 417),
+        ("Solar Plexus", 528),
+        ("Heart", 639),
+        ("Throat", 741),
+        ("Third Eye", 852),
+        ("Crown", 963),
+    ];
+    let chakra_to_element = [
+        ("Root", "Earth"),
+        ("Sacral", "Water"),
+        ("Solar Plexus", "Fire"),
+        ("Heart", "Air"),
+        ("Throat", "Ether"),
+        ("Third Eye", "Light"),
+        ("Crown", "Cosmos"),
+    ];
+
+    for row in rows {
+        let element = chakra_to_element
+            .iter()
+            .find(|(c, _)| *c == row.chakra)
+            .map(|(_, e)| *e)
+            .unwrap_or("Ether");
+
+        let ipa = to_ipa(&row.word);
+        let ipa_reversed = if row.word_reversed.is_empty() {
+            String::new()
+        } else {
+            to_ipa(&row.word_reversed)
+        };
+
+        sql_query(
+            "UPDATE words SET element = $1, ipa = $2, ipa_reversed = $3, \
+             part_of_speech = 'n.', polarity = 'neutral' WHERE id = $4",
+        )
+        .bind::<Text, _>(element)
+        .bind::<Text, _>(&ipa)
+        .bind::<Text, _>(&ipa_reversed)
+        .bind::<Integer, _>(row.id)
+        .execute(conn)?;
+        let hz = chakra_to_hz
+            .iter()
+            .find(|(c, _)| *c == row.chakra)
+            .map(|(_, h)| *h)
+            .unwrap_or(396);
+
+        // Dans le UPDATE
+        sql_query(
+            "UPDATE words SET element = $1, ipa = $2, ipa_reversed = $3, \
+     part_of_speech = 'n.', polarity = 'neutral', frequency = $5 WHERE id = $4",
+        )
+        .bind::<Text, _>(element)
+        .bind::<Text, _>(&ipa)
+        .bind::<Text, _>(&ipa_reversed)
+        .bind::<Integer, _>(row.id)
+        .bind::<Integer, _>(hz)
+        .execute(conn)?;
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// 2. EXPORT DICTIONARY
+// ============================================================
+
+#[derive(QueryableByName, Debug)]
+struct ExportRow {
+    #[diesel(sql_type = Text)]
+    word: String,
+    #[diesel(sql_type = Text)]
+    ipa: String,
+    #[diesel(sql_type = Text)]
+    root: String,
+    #[diesel(sql_type = Text)]
+    chakra: String,
+    #[diesel(sql_type = Text)]
+    definition: String,
+}
+
+pub fn export_dictionary(conn: &mut PgConnection) -> Result<(), Box<dyn std::error::Error>> {
+    let words: Vec<ExportRow> = sql_query(
+        "SELECT word, COALESCE(ipa, '') AS ipa, root, chakra, definition \
+         FROM words ORDER BY word ASC",
+    )
+    .load(conn)?;
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("dictionary.typ")?;
+
+    writeln!(file, "#set page(margin: 1.5cm)")?;
+    writeln!(file, "#set text(font: \"New Computer Modern\", size: 10pt)")?;
+    writeln!(file, "#set heading(numbering: \"1.\")")?;
+    writeln!(file, "= Meikyō Dictionary")?;
+    writeln!(file, "")?;
+
+    for w in &words {
+        writeln!(file, "== {} [{}]", w.word, w.ipa)?;
+        writeln!(file, "*Root:* {} · *Chakra:* {}", w.root, w.chakra)?;
+        writeln!(file, "{}", w.definition)?;
+        writeln!(file, "")?;
+    }
+
+    let status = std::process::Command::new("typst")
+        .args(["compile", "dictionary.typ", "meikyo.pdf"])
+        .status()?;
+
+    if status.success() {
+        println!("PDF généré : meikyo.pdf ({} mots)", words.len());
+    } else {
+        eprintln!("Erreur Typst");
+    }
+
+    Ok(())
+}
+
+pub fn to_ipa(word: &str) -> String {
+    let mut result = word.to_lowercase();
+
+    let replacements = [
+        ("sh", "ʃ"),
+        ("zh", "ʒ"),
+        ("th", "θ"),
+        ("dh", "ð"),
+        ("ch", "tʃ"),
+        ("ñ", "ɲ"),
+        ("ṇ", "ɳ"),
+        ("ṭ", "ʈ"),
+        ("ḍ", "ɖ"),
+        ("ā", "aː"),
+        ("ī", "iː"),
+        ("ū", "uː"),
+        ("ē", "eː"),
+        ("ō", "oː"),
+        ("'", "ʔ"),
+        ("aś", "aʃ"),
+        ("-yū", "-juː"),
+        ("-ūm", "-uːm"),
+        ("-en", "-en"),
+        ("-or", "-or"),
+    ];
+
+    for (from, to) in replacements {
+        result = result.replace(from, to);
+    }
+    result.replace("--", "-")
+}
+
+// ============================================================
+// 3. IMPORT WORDLIST
+// ============================================================
+
+pub fn import_wordlist(
+    conn: &mut PgConnection,
+    path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::schema::concepts::dsl::*;
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let word = line?;
+        let word = word.trim();
+        if word.is_empty() || word.len() < 2 {
+            continue;
+        }
+
+        diesel::insert_into(concepts)
+            .values(english_word.eq(word))
+            .on_conflict(english_word)
+            .do_nothing()
+            .execute(conn)?;
+    }
+
+    println!("Import terminé depuis {}", path);
+    Ok(())
+}
+
+pub fn suggest_words(
+    conn: &mut PgConnection,
+    letter: &str,
+    limit: i64,
+) -> Result<Vec<String>, diesel::result::Error> {
+    use crate::schema::concepts::dsl::*;
+    // On construit un filtre simple (contient au moins une des lettres)
+    let mut query = concepts.filter(implemented.eq(false)).into_boxed();
+
+    if !letter.is_empty() {
+        let pattern = format!("%{letter}%");
+        query = query.filter(english_word.ilike(pattern));
+    }
+    let results: Vec<String> = query.select(english_word).limit(limit).load(conn)?;
+    Ok(results)
+}
+
+pub fn interactive_generation_loop(
+    conn: &mut PgConnection,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::schema::concepts::dsl::*;
+    loop {
+        // 1. Sélection des lettres
+        let alphabet = [
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
+            "r", "s", "t", "u", "v", "w", "x", "y", "z",
+        ];
+
+        let selected_letters =
+            MultiSelect::new("Select starting letters:", alphabet.to_vec()).prompt()?;
+
+        if selected_letters.is_empty() {
+            println!("No letters selected.");
+            continue;
+        }
+
+        // 2. Pour chaque lettre, proposer des mots
+        for letter in &selected_letters {
+            let suggestions = suggest_words(conn, letter, 5)?;
+
+            if suggestions.is_empty() {
+                println!("No words found starting with '{letter}'.");
+                continue;
+            }
+
+            let chosen_words =
+                MultiSelect::new("Select words to implement:", suggestions).prompt()?;
+
+            for w in &chosen_words {
+                if let Err(e) = add_word_interactive() {
+                    eprintln!("Error during generation: {}", e);
+                    continue;
+                }
+                diesel::update(concepts.filter(english_word.eq(w)))
+                    .set(implemented.eq(true))
+                    .execute(conn)?;
+            }
+        }
+
+        // Demander si on continue
+        let continue_loop = Confirm::new("Continue with other letters?")
+            .with_default(true)
+            .prompt()?;
+
+        if !continue_loop {
+            break;
+        }
+    }
+
+    Ok(())
+}
 
 pub fn save_word_and_forms(
     conn: &mut PgConnection,
@@ -91,38 +374,6 @@ pub fn save_word_and_forms(
     Ok(())
 }
 
-pub fn to_ipa(word: &str) -> String {
-    let mut result = word.to_lowercase();
-
-    let replacements = [
-        ("sh", "ʃ"),
-        ("zh", "ʒ"),
-        ("th", "θ"),
-        ("dh", "ð"),
-        ("ch", "tʃ"),
-        ("ñ", "ɲ"),
-        ("ṇ", "ɳ"),
-        ("ṭ", "ʈ"),
-        ("ḍ", "ɖ"),
-        ("ā", "aː"),
-        ("ī", "iː"),
-        ("ū", "uː"),
-        ("ē", "eː"),
-        ("ō", "oː"),
-        ("'", "ʔ"),
-        ("aś", "aʃ"),
-        ("-yū", "-juː"),
-        ("-ūm", "-uːm"),
-        ("-en", "-en"),
-        ("-or", "-or"),
-    ];
-
-    for (from, to) in replacements {
-        result = result.replace(from, to);
-    }
-
-    result.replace("--", "-")
-}
 pub fn add_element_prefix(word: &str, polarities: &[(String, String, String, String)]) -> String {
     if polarities.is_empty() {
         return word.to_string();
@@ -174,8 +425,7 @@ pub fn choose_consonants(chakra: &str) -> Result<Vec<String>, InquireError> {
             .map(|s| s.to_string())
             .collect())
     } else {
-        let manual = Text::new("Enter 3 consonants separated by spaces:").prompt()?;
-        Ok(manual.split_whitespace().map(|s| s.to_string()).collect())
+        Ok(vec![])
     }
 }
 
