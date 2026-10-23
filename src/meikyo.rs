@@ -44,46 +44,7 @@ pub fn add_element_prefix(word: &str, polarities: &[(String, String, String, Str
         format!("{}'{word}", prefix.trim_end_matches('-'))
     }
 }
-pub fn generate_definition(polarities: &[(String, String, String, String)]) -> String {
-    if polarities.len() != 3 {
-        return "Definition not available.".to_string();
-    }
 
-    let descriptions: Vec<String> = polarities
-        .iter()
-        .map(|(agency, realm, element, quality)| {
-            let action = if agency == "Active" {
-                "emits"
-            } else {
-                "receives"
-            };
-            let realm_word = if realm == "Celestial" {
-                "spiritual"
-            } else {
-                "material"
-            };
-            let quality_word = if quality == "Force" {
-                "with force"
-            } else {
-                "with grace"
-            };
-
-            format!(
-                "{} {} {} energy {}",
-                action,
-                realm_word,
-                element.to_lowercase(),
-                quality_word
-            )
-        })
-        .collect();
-
-    format!(
-        "A principle that {}, {}, and {}.",
-        descriptions[0], descriptions[1], descriptions[2]
-    )
-}
-// Step 2 — Choose 3 consonants linked to the chakra
 pub fn choose_consonants(chakra: &str) -> Result<Vec<String>, InquireError> {
     let suggestions: Vec<&str> = match chakra {
         "Root" => vec!["T", "P", "D", "B", "Ṭ", "Ḍ", "M", "N"],
@@ -226,13 +187,80 @@ pub fn add_word_interactive() -> Result<(), InquireError> {
 
     let forms = generate_all_forms(&consonants);
     let mut table = Builder::new();
-    table.push_record(["Label", "Form"]);
+    let base_def = generate_definition(&polarities);
+
+    table.push_record(["Form", "Definition"]);
     for (label, form) in &forms {
-        table.push_record([label, form]);
+        let adapted = adapt_definition(&base_def, label);
+        table.push_record([form, &adapted]);
     }
     let mut t = table.build();
     println!("{}", t.with(Style::modern()).to_string());
-    let definition = generate_definition(&polarities);
-    println!("Définition :\n\n\t{definition}");
     Ok(())
+}
+
+pub fn adapt_definition(base_definition: &str, form_label: &str) -> String {
+    match form_label {
+        "Verb" => format!("Process: {}", base_definition),
+        "Noun" => format!("State: {}", base_definition),
+        "Verbe inversé" | "Noun inversé" => {
+            format!("Complementary: {}", base_definition)
+        }
+        label if label.contains("me-") => {
+            format!("In relation / mirror: {}", base_definition)
+        }
+        label if label.contains("aś-") => {
+            format!("Inner invocation: {}", base_definition)
+        }
+        label if label.contains("-yū") => {
+            format!("In elevation: {}", base_definition)
+        }
+        label if label.contains("-ūm") => {
+            format!("In rooting: {}", base_definition)
+        }
+        label if label.contains("apostrophe") => {
+            format!("With breath: {}", base_definition)
+        }
+        _ => base_definition.to_string(),
+    }
+}
+pub fn generate_definition(polarities: &[(String, String, String, String)]) -> String {
+    if polarities.len() != 3 {
+        return "Definition not available.".to_string();
+    }
+
+    let mut phrases = Vec::new();
+
+    for (agency, realm, element, quality) in polarities {
+        let action = if agency == "Active" {
+            "manifests"
+        } else {
+            "receives"
+        };
+
+        let realm_adj = if realm == "Celestial" {
+            "spiritual"
+        } else {
+            "earthly"
+        };
+
+        let quality_adv = if quality == "Force" {
+            "strongly"
+        } else {
+            "gently"
+        };
+
+        phrases.push(format!(
+            "{} {} {} {} energy",
+            action,
+            quality_adv,
+            realm_adj,
+            element.to_lowercase()
+        ));
+    }
+
+    format!(
+        "A principle that {}, {}, and {}.",
+        phrases[0], phrases[1], phrases[2]
+    )
 }
