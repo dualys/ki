@@ -82,6 +82,7 @@ diesel::table! {
         extensions -> Nullable<Jsonb>,
         ipa_reversed -> Nullable<Text>,
         hz -> Nullable<Int4>,
+        definition_fr -> Nullable<Text>,
     }
 }
 

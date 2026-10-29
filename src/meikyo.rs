@@ -133,7 +133,7 @@ struct ExportRow {
 pub fn export_dictionary(conn: &mut PgConnection) -> Result<(), Box<dyn std::error::Error>> {
     let words: Vec<ExportRow> = sql_query(
         "SELECT word, COALESCE(ipa, '') AS ipa, root, chakra, definition \
-         FROM words ORDER BY word ASC",
+         FROM meikyo_core_lexicon ORDER BY word ASC",
     )
     .load(conn)?;
 
@@ -147,13 +147,12 @@ pub fn export_dictionary(conn: &mut PgConnection) -> Result<(), Box<dyn std::err
     writeln!(file, "#set text(font: \"New Computer Modern\", size: 10pt)")?;
     writeln!(file, "#set heading(numbering: \"1.\")")?;
     writeln!(file, "= Meikyō Dictionary")?;
-    writeln!(file, "")?;
+    writeln!(file)?;
 
     for w in &words {
-        writeln!(file, "== {} [{}]", w.word, w.ipa)?;
-        writeln!(file, "*Root:* {} · *Chakra:* {}", w.root, w.chakra)?;
+        writeln!(file, "== {} [{}] {} {}", w.word, w.ipa, w.root, w.chakra)?;
         writeln!(file, "{}", w.definition)?;
-        writeln!(file, "")?;
+        writeln!(file)?;
     }
 
     let status = std::process::Command::new("typst")
